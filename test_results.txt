@@ -1,0 +1,178 @@
+No files changed, compilation skipped
+
+Ran 3 tests for test/DobNodeLiquidity.e2e.t.sol:DobNodeLiquidityE2ETest
+[PASS] test_E2E_CompleteWorkflow() (gas: 193583)
+Logs:
+  Oracle deployed at: 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+  USDC deployed at: 0x2e234DAe75C793f67A35089C9d99245E1C58470b
+  DobToken deployed at: 0xF62849F9A0B5Bf2913b396098F7c7019b51A820a
+  LiquidNode deployed at: 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9
+  
+
+  ========================================
+    DOB NODE LIQUIDITY - E2E WORKFLOW
+  ========================================
+  
+=== PHASE 1: PROJECT LAUNCH ===
+
+  Solar Farm 2035 project launches with:
+  - Initial NAV: 1.00 USDC per DOB token
+  - Default Risk: 10% (new project)
+  - Operator receives 99% of buy proceeds
+  
+=== PHASE 2: FIRST INVESTORS ENTER ===
+
+  Investor 1 buys in:
+    USDC invested:  10000
+    DOB received:  9900
+    To operator:  9900  USDC
+  
+Investor 2 buys in:
+    USDC invested:  5000
+    DOB received:  4950
+  
+Total supply after initial investments:  14850  DOB
+  
+=== PHASE 3: PROJECT GENERATES REVENUE ===
+
+  Solar farm generates strong revenue!
+    New NAV: 1.15 USDC (+15%)
+    New Risk: 7% (improved outlook)
+  
+Portfolio values:
+    Investor 1: 10963 USDC, penalty: 370
+    Investor 2: 5481 USDC, penalty: 370
+  
+=== PHASE 4: NEW INVESTOR AT HIGHER NAV ===
+
+  Investor 3 buys at NAV 1.15:
+    USDC invested:  20000
+    DOB received:  17217
+    (Fewer tokens due to higher NAV)
+  
+=== PHASE 5: INVESTOR 1 TAKES PROFITS ===
+
+  Investor 1 sells 50% of position:
+    DOB sold:  4950
+    USDC received:  5481
+    Penalty paid: 370 bps
+    Remaining position: 4950 DOB
+  
+=== PHASE 6: ADVERSE EVENT ===
+
+  Equipment failure at solar farm!
+    New NAV: 0.85 USDC (-26% from peak)
+    New Risk: 35% (increased uncertainty)
+  
+Distressed portfolio values:
+    Investor 1: 3934 USDC, penalty: 650
+    Investor 2: 3934 USDC, penalty: 650
+    Investor 3: 13683 USDC, penalty: 650
+  
+=== PHASE 7: LIQUID NODE EMERGENCY EXIT ===
+
+  Investor 2 considers emergency exit:
+    Standard redemption:  3934  USDC
+    Liquid Node offer:  3531  USDC
+    Liquid Node fee:  1607  bps
+    => Standard redemption is better
+  
+Investor 2 exits position completely
+  
+=== PHASE 8: PROJECT RECOVERS ===
+
+  Solar farm repairs complete, strong Q4!
+    New NAV: 1.30 USDC (+53% from distress)
+    New Risk: 4% (very stable now)
+  
+Recovered portfolio values:
+    Investor 1: 6216 USDC, penalty: 340
+    Investor 3: 21621 USDC, penalty: 340
+  
+=== PHASE 9: FINAL EXITS ===
+
+  All investors have exited
+  Final DOB supply:  0
+  
+========================================
+             INVESTMENT SUMMARY
+  ========================================
+
+  Investor 1 (early, partial exit before crash):
+    Initial: 10,000 USDC
+    First exit:  5481  USDC at NAV 1.15
+    Final exit:  6216  USDC at NAV 1.30
+    Total received: ~ 11698  USDC
+    Result: PROFIT (took profits before crash)
+  
+Investor 2 (panic sold during crash):
+    Initial: 5,000 USDC
+    Exit:  3934  USDC at NAV 0.85
+    Result: LOSS (sold at bottom)
+  
+Investor 3 (bought high, held through crash):
+    Initial: 20,000 USDC at NAV 1.15
+    Exit:  21621  USDC at NAV 1.30
+    Result: PROFIT (patient holding paid off)
+  
+========================================
+
+
+[PASS] test_E2E_LiquidNodeDynamics() (gas: 73957)
+Logs:
+  Oracle deployed at: 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+  USDC deployed at: 0x2e234DAe75C793f67A35089C9d99245E1C58470b
+  DobToken deployed at: 0xF62849F9A0B5Bf2913b396098F7c7019b51A820a
+  LiquidNode deployed at: 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9
+  
+
+  ========================================
+    LIQUID NODE COMPETITIVE DYNAMICS
+  ========================================
+  
+Large position exit: 50,000 DOB
+
+  Risk Level: Very Low (5%)
+    Standard: 48250 USDC, penalty: 350
+    LiqNode: 47170 USDC, fee: 566
+    Winner: Standard Redemption
+  
+  Risk Level: Low (15%)
+    Standard: 47750 USDC, penalty: 450
+    LiqNode: 46500 USDC, fee: 700
+    Winner: Standard Redemption
+  
+  Risk Level: Medium (30%)
+    Standard: 47000 USDC, penalty: 600
+    LiqNode: 42500 USDC, fee: 1500
+    Winner: Standard Redemption
+  
+  Risk Level: High (50%)
+    Standard: 46000 USDC, penalty: 800
+    LiqNode: 40360 USDC, fee: 1928
+    Winner: Standard Redemption
+  
+
+[PASS] test_E2E_PenaltyMatrix() (gas: 136200)
+Logs:
+  Oracle deployed at: 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+  USDC deployed at: 0x2e234DAe75C793f67A35089C9d99245E1C58470b
+  DobToken deployed at: 0xF62849F9A0B5Bf2913b396098F7c7019b51A820a
+  LiquidNode deployed at: 0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9
+  
+
+  ========================================
+      PENALTY MATRIX (1000 DOB sell)
+  ========================================
+
+  NAV (USDC) |  5%   |  15%  |  30%  |  45%  |  60%  |
+  -----------|-------|-------|-------|-------|-------|
+  0.50
+  0.80
+  1.00
+  1.20
+  2.00
+
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 2.00ms (845.79µs CPU time)
+
+Ran 1 test suite in 96.60ms (2.00ms CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)

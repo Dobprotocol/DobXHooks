@@ -1,0 +1,350 @@
+  PRICE STABILIZATION SIMULATION
+  ============================================
+
+  
+[INITIAL STATE]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 101111
+    DOB:  100137
+  
+  Pool Price: $0.00
+  Oracle NAV: $0.90
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 125088
+    DOB:  5630
+    Fees: 124385 USDC
+  
+  >>> STABILIZATION NEEDED <<<
+      Action: SELL DOB
+      Deviation: 12.19%
+  
+--- SCENARIO 1: Small Swap (No Stabilization) ---
+     Swapped 1,000 USDC for DOB
+  
+[After Small Swap]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 99184
+    DOB:  102094
+  
+  Pool Price: $0.00
+  Oracle NAV: $0.90
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 128014
+    DOB:  2695
+    Fees: 169190 USDC
+  
+  >>> STABILIZATION NEEDED <<<
+      Action: SELL DOB
+      Deviation: 7.94%
+  
+--- SCENARIO 2: Large DOB Sale (Price Drop) ---
+     Sold 30,000 DOB for USDC
+  
+[After Large DOB Sale]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 93303
+    DOB:  108689
+  
+  Pool Price: $0.00
+  Oracle NAV: $0.90
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 111437
+    DOB:  26099
+    Fees: 169274 USDC
+  
+  Pool stable (deviation < 5%)
+  
+--- SCENARIO 3: Large DOB Buy (Price Rise) ---
+     Bought DOB with 30,000 USDC
+  
+[After Large DOB Buy]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 99574
+    DOB:  102008
+  
+  Pool Price: $0.00
+  Oracle NAV: $0.90
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 135166
+    DOB:  6415
+    Fees: 215230 USDC
+  
+  >>> STABILIZATION NEEDED <<<
+      Action: SELL DOB
+      Deviation: 8.45%
+  
+--- SCENARIO 4: Oracle NAV Increase ---
+     Updated NAV to $1.10 (+10%)
+  
+[After NAV Increase]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 99574
+    DOB:  102008
+  
+  Pool Price: $0.00
+  Oracle NAV: $1.10
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 135166
+    DOB:  6415
+    Fees: 215230 USDC
+  
+  >>> STABILIZATION NEEDED <<<
+      Action: BUY DOB
+      Deviation: 11.26%
+  
+--- SCENARIO 5: Swap After NAV Change ---
+     Swapped 1,000 USDC for DOB
+  
+[After Swap (Should Stabilize)]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 103518
+    DOB:  98133
+  
+  Pool Price: $0.00
+  Oracle NAV: $1.10
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 132221
+    DOB:  9279
+    Fees: 215245 USDC
+  
+  Pool stable (deviation < 5%)
+  
+--- SCENARIO 6: Oracle NAV Decrease ---
+     Updated NAV to $0.90 (-10%)
+  
+[After NAV Decrease]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 103518
+    DOB:  98133
+  
+  Pool Price: $0.00
+  Oracle NAV: $0.90
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 132221
+    DOB:  9279
+    Fees: 215245 USDC
+  
+  >>> STABILIZATION NEEDED <<<
+      Action: SELL DOB
+      Deviation: 17.20%
+  
+--- SCENARIO 7: Swap After NAV Drop ---
+     Swapped 1,000 USDC for DOB
+  
+[After Swap (Should Stabilize)]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 99355
+    DOB:  102264
+  
+  Pool Price: $0.00
+  Oracle NAV: $0.90
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 137385
+    DOB:  4212
+    Fees: 259895 USDC
+  
+  >>> STABILIZATION NEEDED <<<
+      Action: SELL DOB
+      Deviation: 7.94%
+  
+--- SCENARIO 8: Multiple Rapid Swaps ---
+     Executed 3 swaps of 5,000 USDC each
+  
+[After Multiple Swaps]
+  -----------------------------------
+  Pool Reserves:
+    USDC: 109922
+    DOB:  92486
+  
+  Pool Price: $0.00
+  Oracle NAV: $0.90
+  Deviation:  99.99%
+  
+  Liquid Node:
+    USDC: 141818
+    DOB:  76
+    Fees: 381201 USDC
+  
+  >>> STABILIZATION NEEDED <<<
+      Action: SELL DOB
+      Deviation: 32.5%
+  
+============================================
+  SIMULATION SUMMARY
+  ============================================
+
+  Final Liquid Node State:
+    USDC:  141818 (started with 50,000)
+    DOB:   76 (started with 50,000)
+    Fees:  381201 USDC
+  
+  Changes:
+    USDC: +91818
+    DOB:  -49924
+  
+Key Insights:
+  - Liquid Node intervened when price deviated > 5%
+  - Intervention was proportional to deviation size
+  - 0.5% fee collected on each intervention
+  - Pool price stability maintained around NAV
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 31337
+
+Estimated gas price: 1.209984145 gwei
+
+Estimated total gas used for script: 27197271
+
+Estimated amount required: 0.032908266697268295 ETH
+
+==========================
+##
+Sending transactions [0 - 17].
+##
+Waiting for receipts.
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x5a2819b46fb63b640dc15437a4e1b8508fdbb65a902f64694c94c84ed24a0122
+Block: 92
+Paid: 0.000055563341969382 ETH (45921 gas * 1.209976742 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x2d9eb2a250a892d5a64aca8d577af0d0fe15914bfa1f2db5d34ec02ae0012231
+Block: 93
+Paid: 0.00177512769607814 ETH (1467077 gas * 1.20997582 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x0464372d6689eb81dd08b892bf4084658327c2d81ac2dec03aa00c993442aec8
+Block: 94
+Paid: 0.00005563586461329 ETH (45981 gas * 1.20997509 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x84d54a334f7b7b83548c80052d87d9ab3ff4c7714152f44167a1648498601016
+Block: 94
+Paid: 0.00048037100050581 ETH (397009 gas * 1.20997509 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x5f23a3f2d6918929f9380bdbdc652b474315c1e6b8e9d4c83c6e548e01674495
+Block: 94
+Paid: 0.00005557778580897 ETH (45933 gas * 1.20997509 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x312d2a9a90b8123a1071800125c77a0d08d8b903420c08ced879411cfa15a788
+Block: 94
+Paid: 0.0018232872636192 ETH (1506880 gas * 1.20997509 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x812f4542d32525324f9a3368386a020c9e37cd8f32576a8014a9e5f2706564f3
+Block: 94
+Paid: 0.00003897692757417 ETH (32213 gas * 1.20997509 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x12bbd930f7f5cb141b8061e32977f5b0899277c944e869791c3bd926f95de927
+Block: 94
+Paid: 0.00005556326610789 ETH (45921 gas * 1.20997509 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x5c1106a77805ebd39f5f609a6803347b97b86f1ac5635ed0f703f5b416a470fc
+Block: 94
+Paid: 0.00010182908362422 ETH (84158 gas * 1.20997509 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x77af3eed1863de94d998ee900b28dcc96dfd142fa956746f3bfbc4e06c347eac
+Block: 95
+Paid: 0.000038976907763175 ETH (32213 gas * 1.209974475 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xcd2dcfb94ba767685a61e549d41d00afae0d443c41bce19d5837d877bb2eac4e
+Block: 95
+Paid: 0.000055563237866475 ETH (45921 gas * 1.209974475 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x7262b95e88b7474dee7fb1860b8222337816f72a2d58fd93b2eda23669d80729
+Block: 95
+Paid: 0.001775125722859575 ETH (1467077 gas * 1.209974475 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xeea105ac95eb4c42c592d7e9a2c9a7dcba088376ac2dbb3f08bb1dfb5743d7f4
+Block: 95
+Paid: 0.000055577757560175 ETH (45933 gas * 1.209974475 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x363a2abc587ab1c2234ac14d389fb2ab7fc0401ea708274e34caae61d79acf0d
+Block: 95
+Paid: 0.001823286336888 ETH (1506880 gas * 1.209974475 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xa350f6a7b760bda5e5f3c88671cb14bc0f12af60ed2ecf6ae406522503261ffd
+Block: 95
+Paid: 0.000055577757560175 ETH (45933 gas * 1.209974475 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x57e1faf4d1cf2b5b8ac07717b93141a75f67a38cc7c937221bbb593b502aec43
+Block: 95
+Paid: 0.001823286336888 ETH (1506880 gas * 1.209974475 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xdea3b9d038c0fdf78ab3b3958f313ca6e4b8b24af07d12548a89c79ef49f5418
+Block: 96
+Paid: 0.000055577737257789 ETH (45933 gas * 1.209974033 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xf32b273861a15927f7ad449210bb22971d0322a3c51d8b3fa6dea27aade33369
+Block: 97
+Paid: 0.00182328479082912 ETH (1506880 gas * 1.209973449 gwei)
+
+
+
+==========================
+
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+Total Paid: 0.011948188815373556 ETH (9874743 gas * avg 1.209974833 gwei)
+
+Transactions saved to: /Users/fernando/Downloads/dobliquidity/dob-node-liquidity/broadcast/SimulateStabilization.s.sol/31337/run-latest.json
+
+Sensitive values saved to: /Users/fernando/Downloads/dobliquidity/dob-node-liquidity/cache/SimulateStabilization.s.sol/31337/run-latest.json
+
