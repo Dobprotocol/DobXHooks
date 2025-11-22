@@ -3,16 +3,33 @@ pragma solidity ^0.8.24;
 
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {Currency} from "v4-core/types/Currency.sol";
 import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
 import {SwapParams} from "v4-core/types/PoolOperation.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDobOracle} from "./interfaces/IDobOracle.sol";
+import "forge-std/console.sol";
+
+// Extended interface for MockPoolManagerLocal
+interface IPoolManagerExtended {
+    function getPoolReserves(bytes32 poolId) external view returns (uint256 reserve0, uint256 reserve1);
+    function adjustReserves(
+        bytes32 poolId,
+        int256 amount0Delta,
+        int256 amount1Delta,
+        address token0,
+        address token1,
+        address liquidNode
+    ) external;
+}
 
 /// @title LiquidNodeStabilizer
 /// @notice Pre-funded buffer that stabilizes pool price around oracle NAV
 /// @dev Intervenes when pool price deviates >5% from NAV, earns fixed 0.5% fee
 contract LiquidNodeStabilizer {
+    using PoolIdLibrary for PoolKey;
+
     IPoolManager public immutable poolManager;
     IDobOracle public immutable oracle;
     Currency public immutable usdc;
@@ -68,42 +85,65 @@ contract LiquidNodeStabilizer {
     /// @param poolKey The pool to stabilize
     /// @param deviation The price deviation in bps
     function stabilizeLow(PoolKey calldata poolKey, uint256 deviation) external returns (uint256 feeEarned) {
+        console.log("[LIQUID NODE] stabilizeLow called");
+
         // Only hook can call stabilization
         require(msg.sender == address(poolKey.hooks), "Only hook");
 
-        // Calculate intervention amount proportional to deviation
-        // More deviation = bigger intervention
+        // DEMO FIX: Use 50% of USDC balance for strong intervention
         uint256 usdcBalance = IERC20(Currency.unwrap(usdc)).balanceOf(address(this));
-        uint256 interventionAmount = (usdcBalance * deviation) / (BPS * 10); // Use up to 10% of balance per deviation point
-
-        if (interventionAmount > usdcBalance) {
-            interventionAmount = usdcBalance;
-        }
+        uint256 interventionAmount = usdcBalance / 2; // Use half of balance
 
         if (interventionAmount == 0) revert InsufficientBalance();
 
+        console.log("[LIQUID NODE] USDC intervention (50% of balance):", interventionAmount);
+
         // Calculate fee (0.5% of intervention)
         feeEarned = (interventionAmount * INTERVENTION_FEE) / BPS;
-        uint256 swapAmount = interventionAmount - feeEarned;
+        uint256 netAmount = interventionAmount - feeEarned;
 
-        // Approve PoolManager to spend USDC
-        IERC20(Currency.unwrap(usdc)).approve(address(poolManager), swapAmount);
+        // Calculate how much DOB to receive using constant product formula
+        // We're selling USDC to buy DOB
+        // Pool has reserves, we add USDC and take DOB
+        bytes32 poolId = bytes32(PoolId.unwrap(poolKey.toId()));
+        (uint256 reserve0, uint256 reserve1) = IPoolManagerExtended(address(poolManager)).getPoolReserves(poolId);
 
-        // Execute swap: USDC → DOB (buy DOB to support price)
-        bool zeroForOne = Currency.unwrap(usdc) < Currency.unwrap(dobToken);
+        bool usdcIsToken0 = Currency.unwrap(usdc) < Currency.unwrap(dobToken);
+        uint256 usdcReserve = usdcIsToken0 ? reserve0 : reserve1;
+        uint256 dobReserve = usdcIsToken0 ? reserve1 : reserve0;
 
-        poolManager.swap(
-            poolKey,
-            SwapParams({
-                zeroForOne: zeroForOne,
-                amountSpecified: -int256(swapAmount), // Exact input
-                sqrtPriceLimitX96: zeroForOne ? 4295128739 : 1461446703485210103287273052203988822378723970342 // Min/max price
-            }),
-            ""
+        // Constant product: (x + Δx)(y - Δy) = xy
+        // Δy = (y * Δx) / (x + Δx)
+        uint256 dobToReceive = (dobReserve * netAmount) / (usdcReserve + netAmount);
+
+        console.log("[LIQUID NODE] DOB to receive:", dobToReceive);
+
+        // Approve PoolManager to take USDC from us
+        IERC20(Currency.unwrap(usdc)).approve(address(poolManager), netAmount);
+
+        // Calculate deltas for adjustReserves
+        // We're adding USDC to pool, taking DOB from pool
+        int256 amount0Delta = usdcIsToken0 ? int256(netAmount) : -int256(dobToReceive);
+        int256 amount1Delta = usdcIsToken0 ? -int256(dobToReceive) : int256(netAmount);
+
+        // PoolManager will handle all transfers
+        address token0 = usdcIsToken0 ? Currency.unwrap(usdc) : Currency.unwrap(dobToken);
+        address token1 = usdcIsToken0 ? Currency.unwrap(dobToken) : Currency.unwrap(usdc);
+
+        IPoolManagerExtended(address(poolManager)).adjustReserves(
+            poolId,
+            amount0Delta,
+            amount1Delta,
+            token0,
+            token1,
+            address(this)
         );
 
         totalFeesEarned += feeEarned;
-        emit Stabilized(true, swapAmount, feeEarned);
+        console.log("[LIQUID NODE] Fee earned (USDC):", feeEarned);
+        console.log("[LIQUID NODE] Total fees earned:", totalFeesEarned);
+        console.log("[LIQUID NODE] stabilizeLow completed!");
+        emit Stabilized(true, netAmount, feeEarned);
     }
 
     /// @notice Stabilize when pool price is too HIGH (> NAV + 5%)
@@ -111,41 +151,69 @@ contract LiquidNodeStabilizer {
     /// @param poolKey The pool to stabilize
     /// @param deviation The price deviation in bps
     function stabilizeHigh(PoolKey calldata poolKey, uint256 deviation) external returns (uint256 feeEarned) {
+        console.log("[LIQUID NODE] stabilizeHigh called");
+
         // Only hook can call stabilization
         require(msg.sender == address(poolKey.hooks), "Only hook");
 
-        // Calculate intervention amount proportional to deviation
+        // DEMO FIX: Use 50% of DOB balance for strong intervention
         uint256 dobBalance = IERC20(Currency.unwrap(dobToken)).balanceOf(address(this));
-        uint256 interventionAmount = (dobBalance * deviation) / (BPS * 10); // Use up to 10% of balance per deviation point
-
-        if (interventionAmount > dobBalance) {
-            interventionAmount = dobBalance;
-        }
+        uint256 interventionAmount = dobBalance / 2; // Use half of balance
 
         if (interventionAmount == 0) revert InsufficientBalance();
 
-        // Approve PoolManager to spend DOB
-        IERC20(Currency.unwrap(dobToken)).approve(address(poolManager), interventionAmount);
+        console.log("[LIQUID NODE] DOB intervention (50% of balance):", interventionAmount);
 
-        // Execute swap: DOB → USDC (sell DOB to cap price)
-        bool zeroForOne = Currency.unwrap(dobToken) < Currency.unwrap(usdc);
+        // Calculate fee (0.5% of intervention in DOB)
+        feeEarned = (interventionAmount * INTERVENTION_FEE) / BPS;
+        uint256 netAmount = interventionAmount - feeEarned;
 
-        poolManager.swap(
-            poolKey,
-            SwapParams({
-                zeroForOne: zeroForOne,
-                amountSpecified: -int256(interventionAmount), // Exact input
-                sqrtPriceLimitX96: zeroForOne ? 4295128739 : 1461446703485210103287273052203988822378723970342 // Min/max price
-            }),
-            ""
+        // Calculate how much USDC to receive using constant product formula
+        // We're selling DOB to buy USDC
+        bytes32 poolId = bytes32(PoolId.unwrap(poolKey.toId()));
+        (uint256 reserve0, uint256 reserve1) = IPoolManagerExtended(address(poolManager)).getPoolReserves(poolId);
+
+        bool usdcIsToken0 = Currency.unwrap(usdc) < Currency.unwrap(dobToken);
+        uint256 usdcReserve = usdcIsToken0 ? reserve0 : reserve1;
+        uint256 dobReserve = usdcIsToken0 ? reserve1 : reserve0;
+
+        // Constant product: (x + Δx)(y - Δy) = xy
+        // Δy = (y * Δx) / (x + Δx)
+        uint256 usdcToReceive = (usdcReserve * netAmount) / (dobReserve + netAmount);
+
+        console.log("[LIQUID NODE] USDC to receive:", usdcToReceive);
+
+        // Approve PoolManager to take DOB from us
+        IERC20(Currency.unwrap(dobToken)).approve(address(poolManager), netAmount);
+
+        // Calculate deltas for adjustReserves
+        // We're adding DOB to pool, taking USDC from pool
+        int256 amount0Delta = usdcIsToken0 ? -int256(usdcToReceive) : int256(netAmount);
+        int256 amount1Delta = usdcIsToken0 ? int256(netAmount) : -int256(usdcToReceive);
+
+        // PoolManager will handle all transfers
+        address token0 = usdcIsToken0 ? Currency.unwrap(usdc) : Currency.unwrap(dobToken);
+        address token1 = usdcIsToken0 ? Currency.unwrap(dobToken) : Currency.unwrap(usdc);
+
+        IPoolManagerExtended(address(poolManager)).adjustReserves(
+            poolId,
+            amount0Delta,
+            amount1Delta,
+            token0,
+            token1,
+            address(this)
         );
 
-        // Fee is earned in USDC after selling
-        uint256 usdcReceived = IERC20(Currency.unwrap(usdc)).balanceOf(address(this));
-        feeEarned = (usdcReceived * INTERVENTION_FEE) / BPS;
+        // Convert DOB fee to USDC equivalent for tracking
+        // feeEarned is in DOB (18 decimals), usdcReserve is in USDC (6 decimals), dobReserve is in DOB (18 decimals)
+        // Result: (18 * 6) / 18 = 6 decimals (USDC)
+        uint256 feeEarnedUSDC = (feeEarned * usdcReserve) / dobReserve;
+        totalFeesEarned += feeEarnedUSDC;
 
-        totalFeesEarned += feeEarned;
-        emit Stabilized(false, interventionAmount, feeEarned);
+        console.log("[LIQUID NODE] Fee earned (USDC equivalent):", feeEarnedUSDC);
+        console.log("[LIQUID NODE] Total fees earned:", totalFeesEarned);
+        console.log("[LIQUID NODE] stabilizeHigh completed!");
+        emit Stabilized(false, netAmount, feeEarnedUSDC);
     }
 
     /// @notice Withdraw accumulated fees

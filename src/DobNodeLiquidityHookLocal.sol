@@ -30,6 +30,11 @@ contract DobNodeLiquidityHookLocal is LocalBaseHook, IHooks {
 
     uint256 public constant DEVIATION_THRESHOLD = 500; // 5% in bps
     uint256 public constant BPS = 10000;
+    uint256 public constant MIN_STABILIZATION_INTERVAL = 5; // seconds between stabilizations
+
+    // Flag to prevent recursive stabilization (demo purposes)
+    bool private isStabilizing;
+    uint256 private lastStabilizationTime;
 
     event PriceStabilized(uint256 poolPrice, uint256 nav, uint256 deviation, bool buyingDOB);
     event PriceChecked(uint256 poolPrice, uint256 nav, uint256 deviation);
@@ -156,12 +161,19 @@ contract DobNodeLiquidityHookLocal is LocalBaseHook, IHooks {
 
     /// @notice Internal afterSwap implementation
     function _afterSwap(
-        address,
+        address sender,
         PoolKey calldata key,
         SwapParams calldata,
         BalanceDelta,
         bytes calldata
     ) internal returns (bytes4, int128) {
+        // DEMO FIX: Skip if already stabilizing to prevent nested recursion
+        // This ensures at most 1 level of nesting per transaction
+        if (isStabilizing) {
+            console.log("[HOOK] Skipping - already stabilizing (prevents nesting)");
+            return (this.afterSwap.selector, 0);
+        }
+
         // Get current pool price
         uint256 poolPrice = _getPoolPrice(key);
 
@@ -194,6 +206,10 @@ contract DobNodeLiquidityHookLocal is LocalBaseHook, IHooks {
 
         // If deviation > 5%, trigger stabilization
         if (deviation > DEVIATION_THRESHOLD) {
+            // DEMO FIX: Set flag and timestamp before stabilization
+            isStabilizing = true;
+            lastStabilizationTime = block.timestamp;
+
             if (poolPriceTooLow) {
                 // Pool price too low - Liquid Node buys DOB to support price
                 console.log("[HOOK] Calling stabilizeLow...");
@@ -219,6 +235,9 @@ contract DobNodeLiquidityHookLocal is LocalBaseHook, IHooks {
                     console.logBytes(lowLevelData);
                 }
             }
+
+            // DEMO FIX: Clear flag after stabilization completes
+            isStabilizing = false;
         }
 
         return (this.afterSwap.selector, 0);
@@ -283,5 +302,57 @@ contract DobNodeLiquidityHookLocal is LocalBaseHook, IHooks {
         }
 
         shouldStabilize = deviation > DEVIATION_THRESHOLD;
+    }
+
+    /// @notice Manually trigger stabilization (for demo purposes)
+    function manualStabilize(PoolKey calldata key) external {
+        console.log("[HOOK] Manual stabilization called");
+
+        // Get current pool price
+        uint256 poolPrice = _getPoolPrice(key);
+        uint256 nav = oracle.nav();
+
+        // Calculate deviation
+        uint256 deviation;
+        bool poolPriceTooLow;
+
+        if (poolPrice < nav) {
+            deviation = ((nav - poolPrice) * BPS) / nav;
+            poolPriceTooLow = true;
+        } else {
+            deviation = ((poolPrice - nav) * BPS) / nav;
+            poolPriceTooLow = false;
+        }
+
+        console.log("[HOOK] Manual stabilization - Deviation:", deviation);
+        console.log("[HOOK] Manual stabilization - Threshold:", DEVIATION_THRESHOLD);
+
+        if (deviation > DEVIATION_THRESHOLD) {
+            if (poolPriceTooLow) {
+                console.log("[HOOK] Manual stabilizeLow...");
+                try liquidNode.stabilizeLow(key, deviation) {
+                    console.log("[HOOK] Manual stabilizeLow SUCCESS");
+                    emit PriceStabilized(poolPrice, nav, deviation, true);
+                } catch Error(string memory reason) {
+                    console.log("[HOOK] Manual stabilizeLow FAILED:", reason);
+                } catch (bytes memory lowLevelData) {
+                    console.log("[HOOK] Manual stabilizeLow FAILED with low-level error");
+                    console.logBytes(lowLevelData);
+                }
+            } else {
+                console.log("[HOOK] Manual stabilizeHigh...");
+                try liquidNode.stabilizeHigh(key, deviation) {
+                    console.log("[HOOK] Manual stabilizeHigh SUCCESS");
+                    emit PriceStabilized(poolPrice, nav, deviation, false);
+                } catch Error(string memory reason) {
+                    console.log("[HOOK] Manual stabilizeHigh FAILED:", reason);
+                } catch (bytes memory lowLevelData) {
+                    console.log("[HOOK] Manual stabilizeHigh FAILED with low-level error");
+                    console.logBytes(lowLevelData);
+                }
+            }
+        } else {
+            console.log("[HOOK] Manual stabilization skipped - deviation below threshold");
+        }
     }
 }

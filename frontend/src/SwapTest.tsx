@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { formatUnits, parseUnits, keccak256, encodeAbiParameters } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import {
   CONTRACTS,
   POOL_MANAGER_ABI,
@@ -14,6 +14,24 @@ import {
 export function SwapTestPanel() {
   return (
     <div className="space-y-6">
+      {/* Demo Mode Banner */}
+      <div className="bg-gradient-to-r from-yellow-600 to-orange-600 rounded-lg p-4 border-2 border-yellow-400 shadow-lg">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🎯</span>
+          <div>
+            <h3 className="text-xl font-bold text-white">DEMO MODE - Enhanced Parameters</h3>
+            <p className="text-yellow-100 text-sm mt-1">
+              Automatic stabilization: <span className="font-bold">ENABLED</span> (max 1 nested call) •
+              Stabilization Threshold: <span className="font-bold">5%</span> •
+              Intervention Size: <span className="font-bold">50% of reserves</span> (production: calculated)
+            </p>
+            <p className="text-yellow-200 text-xs mt-1 font-semibold">
+              ⚡ Large swaps (6K+ USDC) will automatically trigger stabilization
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Step-by-step Instructions */}
       <div className="bg-gradient-to-r from-purple-900 to-blue-900 rounded-lg p-6 border-2 border-purple-500">
         <h2 className="text-2xl font-bold mb-4 text-purple-200">🧪 Hook Integration Testing Guide</h2>
@@ -43,7 +61,7 @@ export function SwapTestPanel() {
             <div className="bg-purple-600 rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">4</div>
             <div>
               <div className="font-semibold text-purple-200">Watch Stabilization</div>
-              <div className="text-purple-300">If deviation {">"} 5%, LiquidNode will intervene automatically. Watch stats update!</div>
+              <div className="text-purple-300">If deviation {">"} 20%, LiquidNode will intervene automatically with 50% of reserves. Watch stats update!</div>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -52,6 +70,31 @@ export function SwapTestPanel() {
               <div className="font-semibold text-purple-200">Test Different Scenarios</div>
               <div className="text-purple-300">Use Demo Controls below to change NAV/Risk, then swap again to trigger stabilization</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Demo Tips */}
+      <div className="bg-gradient-to-r from-green-900 to-teal-900 rounded-lg p-5 border-2 border-green-500">
+        <h3 className="text-lg font-bold text-green-200 mb-3 flex items-center gap-2">
+          💡 Demo Tips - What to Watch
+        </h3>
+        <div className="grid md:grid-cols-2 gap-3 text-sm text-green-100">
+          <div className="bg-green-950 bg-opacity-50 p-3 rounded">
+            <div className="font-semibold text-green-300 mb-1">🎯 Trigger Auto-Stabilization</div>
+            <div className="text-xs">Swap 6K+ USDC to push deviation above 5% - stabilization triggers automatically!</div>
+          </div>
+          <div className="bg-green-950 bg-opacity-50 p-3 rounded">
+            <div className="font-semibold text-green-300 mb-1">👀 Watch Reserves & Fees</div>
+            <div className="text-xs">After swap, click 🔄 Refresh to see 50% intervention + 0.5% fees earned</div>
+          </div>
+          <div className="bg-green-950 bg-opacity-50 p-3 rounded">
+            <div className="font-semibold text-green-300 mb-1">📊 Monitor Progress Bar</div>
+            <div className="text-xs">Green = safe (&lt;3%), Yellow = warning (3-5%), Red = triggered (&gt;5%)</div>
+          </div>
+          <div className="bg-green-950 bg-opacity-50 p-3 rounded">
+            <div className="font-semibold text-green-300 mb-1">⚡ Manual Override</div>
+            <div className="text-xs">Use "Trigger Stabilization" button below to manually stabilize if needed</div>
           </div>
         </div>
       </div>
@@ -119,7 +162,7 @@ function PoolStatsCard() {
           🔄 Refresh
         </button>
       </div>
-      <div className="text-xs text-gray-500 mb-3">Auto-updates every 2 seconds</div>
+      <div className="text-xs text-gray-500 mb-3">Click 🔄 Refresh to see latest pool state</div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -132,20 +175,57 @@ function PoolStatsCard() {
         </div>
         <div>
           <div className="text-gray-400 text-sm">Deviation</div>
-          <div className={`text-2xl font-bold ${deviation > 5 ? 'text-red-400' : 'text-green-400'}`}>
+          <div className={`text-2xl font-bold ${deviation > 20 ? 'text-red-400 animate-pulse' : deviation > 10 ? 'text-yellow-400' : 'text-green-400'}`}>
             {deviation.toFixed(2)}%
           </div>
+          <div className="text-xs text-gray-500 mt-1">Threshold: 20%</div>
         </div>
         <div>
-          <div className="text-gray-400 text-sm">Stabilization</div>
+          <div className="text-gray-400 text-sm">Stabilization Status</div>
           {shouldStabilize ? (
-            <div className="text-xl font-bold text-yellow-400">
-              ⚠️ {buyDOB ? 'BUY DOB' : 'SELL DOB'}
+            <div className="flex flex-col">
+              <div className="text-xl font-bold text-red-400 animate-pulse">
+                🚨 TRIGGERED
+              </div>
+              <div className="text-xs text-yellow-300 mt-1">
+                Will {buyDOB ? 'BUY' : 'SELL'} with 50% reserves
+              </div>
             </div>
           ) : (
-            <div className="text-xl font-bold text-green-400">✓ Stable</div>
+            <div className="flex flex-col">
+              <div className="text-xl font-bold text-green-400">✓ Stable</div>
+              <div className="text-xs text-gray-500 mt-1">Within threshold</div>
+            </div>
           )}
         </div>
+      </div>
+
+      {/* Visual Threshold Indicator */}
+      <div className="mt-4 p-3 bg-gray-900 rounded">
+        <div className="text-xs text-gray-400 mb-2">Deviation Threshold Monitor</div>
+        <div className="relative h-6 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all duration-500 ${
+              deviation > 20 ? 'bg-red-500 animate-pulse' :
+              deviation > 10 ? 'bg-yellow-500' :
+              'bg-green-500'
+            }`}
+            style={{ width: `${Math.min((deviation / 20) * 100, 100)}%` }}
+          />
+          <div className="absolute inset-0 flex items-center justify-between px-2">
+            <span className="text-xs font-bold text-white drop-shadow-lg">
+              {deviation.toFixed(1)}%
+            </span>
+            <span className="text-xs font-bold text-white drop-shadow-lg">
+              Trigger: 20%
+            </span>
+          </div>
+        </div>
+        {deviation > 20 && (
+          <div className="mt-2 text-xs text-red-400 font-semibold animate-pulse">
+            ⚠️ Above threshold! Stabilization will trigger on next swap
+          </div>
+        )}
       </div>
     </div>
   );
@@ -264,6 +344,20 @@ function LiquidNodeStatsCard() {
 function SwapCard() {
   const [amount, setAmount] = useState('');
   const [isBuying, setIsBuying] = useState(true);
+  const [swapHistory, setSwapHistory] = useState<Array<{
+    direction: string;
+    amount: string;
+    timestamp: number;
+    txHash?: string;
+  }>>(() => {
+    // Load history from localStorage
+    try {
+      const saved = localStorage.getItem('swapHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const { address } = useAccount();
 
   const { data: usdcBalance } = useReadContract({
@@ -309,7 +403,8 @@ function SwapCard() {
   const { writeContract: approveUSDC, data: approveUSDCHash, isPending: isApprovePending, error: approveError } = useWriteContract();
   const { writeContract: approveDOB, data: approveDOBHash, isPending: isApproveDOBPending, error: approveDOBError } = useWriteContract();
   const { writeContract: executeSwap, data: swapHash, isPending: isSwapPending, error: swapError } = useWriteContract();
-  const { writeContract: mintUSDC, data: mintHash, isPending: isMintPending, error: mintError } = useWriteContract();
+  const { writeContract: mintUSDC, data: mintHash, error: mintError } = useWriteContract();
+  const { writeContract: triggerStabilization, data: stabilizeHash, isPending: isStabilizePending, error: stabilizeError } = useWriteContract();
 
   const { isLoading: isApproving, isSuccess: approveSuccess, error: approveTxError } = useWaitForTransactionReceipt({
     hash: approveUSDCHash || approveDOBHash,
@@ -323,6 +418,25 @@ function SwapCard() {
     hash: mintHash,
     confirmations: 1,
   });
+  const { isLoading: isStabilizing, isSuccess: stabilizeSuccess, error: stabilizeTxError } = useWaitForTransactionReceipt({
+    hash: stabilizeHash,
+    confirmations: 1,
+  });
+
+  // Save successful swaps to history
+  useEffect(() => {
+    if (swapSuccess && swapHash && amount) {
+      const newSwap = {
+        direction: isBuying ? 'Buy DOB' : 'Sell DOB',
+        amount,
+        timestamp: Date.now(),
+        txHash: swapHash,
+      };
+      const updatedHistory = [newSwap, ...swapHistory].slice(0, 10); // Keep last 10
+      setSwapHistory(updatedHistory);
+      localStorage.setItem('swapHistory', JSON.stringify(updatedHistory));
+    }
+  }, [swapSuccess, swapHash]);
 
   const amountValue = parseFloat(amount) || 0;
   const usdcBalanceValue = usdcBalance ? Number(formatUnits(usdcBalance, 6)) : 0;
@@ -402,6 +516,64 @@ function SwapCard() {
     });
   };
 
+  const handleManualStabilize = () => {
+    const poolKey = getPoolKey();
+    console.log('⚡ Manually triggering stabilization');
+    triggerStabilization({
+      address: CONTRACTS.hook,
+      abi: HOOK_ABI,
+      functionName: 'manualStabilize',
+      args: [poolKey],
+    });
+  };
+
+  const handleRedoSwap = (historyItem: { direction: string; amount: string }) => {
+    const isBuySwap = historyItem.direction === 'Buy DOB';
+
+    // Set the amount and direction in the UI for visibility
+    setIsBuying(isBuySwap);
+    setAmount(historyItem.amount);
+
+    // Execute the swap directly with the history item's parameters
+    const poolKey = getPoolKey();
+    const zeroForOne = isBuySwap
+      ? CONTRACTS.usdc < CONTRACTS.dobToken
+      : CONTRACTS.dobToken < CONTRACTS.usdc;
+
+    const amountBigInt = isBuySwap
+      ? parseUnits(historyItem.amount, 6)
+      : parseUnits(historyItem.amount, 18);
+
+    const amountSpecified = -amountBigInt;
+
+    console.log('🔄 Redoing swap from history:', {
+      direction: historyItem.direction,
+      zeroForOne,
+      amount: historyItem.amount,
+      amountSpecified: amountSpecified.toString(),
+    });
+
+    executeSwap({
+      address: CONTRACTS.poolManager,
+      abi: POOL_MANAGER_ABI,
+      functionName: 'swap',
+      args: [
+        poolKey,
+        {
+          zeroForOne,
+          amountSpecified,
+          sqrtPriceLimitX96: BigInt(0),
+        },
+        '0x',
+      ],
+    });
+  };
+
+  const clearHistory = () => {
+    setSwapHistory([]);
+    localStorage.removeItem('swapHistory');
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg p-6">
       <h2 className="text-xl font-semibold mb-4 text-yellow-400">🔄 Swap (Tests Hook Integration)</h2>
@@ -465,20 +637,42 @@ function SwapCard() {
           className="w-full bg-gray-700 rounded px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
 
-        {/* Quick Amount Buttons */}
-        <div className="flex gap-2 mt-2">
-          <button
-            onClick={() => setAmount('1000')}
-            className="flex-1 px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-xs"
-          >
-            1K (Small - No Stabilization)
-          </button>
-          <button
-            onClick={() => setAmount('6000')}
-            className="flex-1 px-3 py-1 bg-yellow-600 hover:bg-yellow-500 rounded text-xs"
-          >
-            6K (Large - Triggers Stabilization!)
-          </button>
+        {/* Quick Test Buttons */}
+        <div className="mt-3 p-3 bg-gradient-to-r from-blue-900 to-purple-900 rounded border border-blue-500">
+          <div className="text-sm font-semibold text-blue-300 mb-2">⚡ Quick Demo Tests</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setAmount('2000')}
+              className="px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-xs font-semibold"
+            >
+              2K - Safe Zone<br/>
+              <span className="text-[10px] opacity-80">(~3% deviation)</span>
+            </button>
+            <button
+              onClick={() => setAmount('4000')}
+              className="px-3 py-2 bg-yellow-600 hover:bg-yellow-500 rounded text-xs font-semibold"
+            >
+              4K - Warning<br/>
+              <span className="text-[10px] opacity-80">(~4.5% deviation)</span>
+            </button>
+            <button
+              onClick={() => setAmount('6000')}
+              className="px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded text-xs font-semibold animate-pulse"
+            >
+              🎯 6K - TRIGGER<br/>
+              <span className="text-[10px] opacity-80">(~6% deviation)</span>
+            </button>
+            <button
+              onClick={() => setAmount('8000')}
+              className="px-3 py-2 bg-red-600 hover:bg-red-500 rounded text-xs font-semibold animate-pulse"
+            >
+              🚨 8K - BIG TRIGGER<br/>
+              <span className="text-[10px] opacity-80">(~8% deviation)</span>
+            </button>
+          </div>
+          <div className="text-[10px] text-blue-200 mt-2 text-center">
+            💡 Use 6K+ to see stabilization in action!
+          </div>
         </div>
       </div>
 
@@ -503,23 +697,35 @@ function SwapCard() {
       )}
 
       {/* Action Buttons */}
-      <div className="space-y-2">
+      <div className="space-y-3 mt-4">
         {needsApproval && (
-          <button
-            onClick={handleApprove}
-            disabled={!address || isApprovePending || isApproveDOBPending || isApproving || amountValue <= 0}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 rounded py-3 font-semibold"
-          >
-            {isApprovePending || isApproveDOBPending ? 'Waiting for wallet...' : isApproving ? 'Confirming...' : `Approve ${isBuying ? 'USDC' : 'DOB'}`}
-          </button>
+          <div className="bg-blue-900 bg-opacity-30 border-2 border-blue-500 rounded-lg p-3">
+            <div className="text-sm text-blue-300 mb-2 font-semibold">⚠️ Step 1: Approve Token</div>
+            <button
+              onClick={handleApprove}
+              disabled={!address || isApprovePending || isApproveDOBPending || isApproving || amountValue <= 0}
+              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 rounded-lg py-3 font-bold text-lg transition transform hover:scale-105"
+            >
+              {isApprovePending || isApproveDOBPending ? '⏳ Waiting for wallet...' : isApproving ? '⏳ Confirming...' : `✓ Approve ${isBuying ? 'USDC' : 'DOB'}`}
+            </button>
+          </div>
         )}
-        <button
-          onClick={handleSwap}
-          disabled={!address || isSwapPending || isSwapping || amountValue <= 0 || needsApproval}
-          className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded py-3 font-semibold"
-        >
-          {isSwapPending ? 'Waiting for wallet...' : isSwapping ? 'Confirming...' : needsApproval ? 'Approve First' : `Swap ${isBuying ? 'USDC → DOB' : 'DOB → USDC'}`}
-        </button>
+        <div className={`rounded-lg p-3 ${needsApproval ? 'bg-gray-900 bg-opacity-50 border border-gray-700' : 'bg-yellow-900 bg-opacity-30 border-2 border-yellow-500'}`}>
+          <div className={`text-sm mb-2 font-semibold ${needsApproval ? 'text-gray-500' : 'text-yellow-300'}`}>
+            {needsApproval ? '⏸️ Step 2: Execute Swap (approve first)' : '🚀 Step 2: Execute Swap'}
+          </div>
+          <button
+            onClick={handleSwap}
+            disabled={!address || isSwapPending || isSwapping || amountValue <= 0 || needsApproval}
+            className={`w-full rounded-lg py-4 font-bold text-lg transition transform ${
+              needsApproval
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 hover:scale-105 animate-pulse'
+            }`}
+          >
+            {isSwapPending ? '⏳ Waiting for wallet...' : isSwapping ? '⏳ Confirming...' : needsApproval ? '🔒 Approve First' : `🔄 Swap ${isBuying ? 'USDC → DOB' : 'DOB → USDC'}`}
+          </button>
+        </div>
       </div>
 
       {/* Success Messages */}
@@ -541,7 +747,7 @@ function SwapCard() {
         <div className="mt-4 p-3 bg-green-900 bg-opacity-30 border border-green-600 rounded">
           <div className="text-green-400 font-semibold">✓ Swap Successful!</div>
           <div className="text-sm text-gray-400 mt-1">
-            The hook's afterSwap() was called and checked for stabilization
+            Hook checked for price deviation - stabilization triggered automatically if needed (deviation &gt; 5%)
           </div>
           {swapHash && (
             <div className="text-xs text-gray-500 mt-1">
@@ -559,6 +765,38 @@ function SwapCard() {
           </div>
         </div>
       )}
+
+      {stabilizeSuccess && (
+        <div className="mt-4 p-3 bg-green-900 bg-opacity-30 border border-green-600 rounded">
+          <div className="text-green-400 font-semibold">✓ Manual Stabilization Successful!</div>
+          <div className="text-sm text-gray-400 mt-1">
+            Liquid Node intervened with 50% of reserves
+          </div>
+          {stabilizeHash && (
+            <div className="text-xs text-gray-500 mt-1">
+              Tx: {stabilizeHash.slice(0, 10)}...{stabilizeHash.slice(-8)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Manual Stabilization Button */}
+      <div className="mt-4 p-4 bg-gradient-to-r from-purple-900 to-pink-900 rounded-lg border-2 border-purple-500">
+        <h3 className="text-lg font-bold text-purple-200 mb-2">⚡ Manual Stabilization</h3>
+        <div className="text-sm text-purple-300 mb-3">
+          After large swaps, click below to manually trigger price stabilization
+        </div>
+        <button
+          onClick={handleManualStabilize}
+          disabled={!address || isStabilizePending || isStabilizing}
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:from-gray-600 disabled:to-gray-600 rounded-lg py-3 font-bold text-lg transition transform hover:scale-105"
+        >
+          {isStabilizePending ? '⏳ Waiting for wallet...' : isStabilizing ? '⏳ Stabilizing...' : '⚡ Trigger Stabilization'}
+        </button>
+        <div className="text-xs text-purple-400 mt-2 text-center">
+          Will only stabilize if deviation &gt; 5%
+        </div>
+      </div>
 
       {/* Error Messages */}
       {(approveError || approveDOBError || approveTxError) && (
@@ -594,6 +832,61 @@ function SwapCard() {
         </div>
       )}
 
+      {(stabilizeError || stabilizeTxError) && (
+        <div className="mt-4 p-3 bg-red-900 bg-opacity-30 border border-red-600 rounded">
+          <div className="text-red-400 font-semibold">✗ Stabilization Failed</div>
+          <div className="text-sm text-gray-400 mt-1">
+            {(stabilizeError || stabilizeTxError)?.message || 'Transaction failed'}
+          </div>
+        </div>
+      )}
+
+      {/* Swap History */}
+      {swapHistory.length > 0 && (
+        <div className="mt-4 p-4 bg-gray-700 rounded">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-blue-400">📜 Recent Swaps</h3>
+            <button
+              onClick={clearHistory}
+              className="text-xs text-gray-400 hover:text-gray-300"
+            >
+              Clear History
+            </button>
+          </div>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {swapHistory.map((swap, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-2 bg-gray-800 rounded text-sm"
+              >
+                <div className="flex-1">
+                  <div className="font-semibold">
+                    {swap.direction === 'Buy DOB' ? '🟢' : '🔴'} {swap.direction}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {swap.amount} {swap.direction === 'Buy DOB' ? 'USDC' : 'DOB'}
+                    {' • '}
+                    {new Date(swap.timestamp).toLocaleTimeString()}
+                  </div>
+                  {swap.txHash && (
+                    <div className="text-xs text-gray-500 font-mono">
+                      {swap.txHash.slice(0, 10)}...{swap.txHash.slice(-8)}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleRedoSwap(swap)}
+                  disabled={!address || isSwapPending || isSwapping}
+                  className="ml-3 px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-xs font-semibold"
+                >
+                  🔄 Redo
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 p-3 bg-gray-700 rounded text-sm text-gray-300">
         <div className="font-semibold mb-1">💡 What happens when you swap:</div>
         <ol className="list-decimal list-inside space-y-1 text-xs">
@@ -601,7 +894,7 @@ function SwapCard() {
           <li>Hook's afterSwap() is automatically called</li>
           <li>Hook reads pool price from reserves</li>
           <li>Hook compares to oracle NAV</li>
-          <li>If deviation {">"} 5%, LiquidNodeStabilizer intervenes</li>
+          <li>If deviation {">"} 20%, LiquidNodeStabilizer intervenes with 50% of reserves</li>
           <li>Watch the stats above update in real-time!</li>
         </ol>
       </div>

@@ -1,5 +1,5 @@
 // Contract addresses - updated from latest deployment (checksummed)
-export const CONTRACTS = {
+/*export const CONTRACTS = {
   usdc: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as `0x${string}`,
   oracle: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as `0x${string}`,
   dobToken: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9' as `0x${string}`,
@@ -7,8 +7,15 @@ export const CONTRACTS = {
   liquidNode: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707' as `0x${string}`,
   hook: '0x0165878A594ca255338adfa4d48449f69242Eb8F' as `0x${string}`,
 } as const;
-
-
+*/
+export const CONTRACTS = {
+  usdc: '0x8642584cf29245D7020D798484e94564D40dd3CE' as `0x${string}`,
+  oracle: '0x125fD0A6474f03DE4e2D13d6CfA789Bc4FBB8b94' as `0x${string}`,
+  dobToken: '0x52805E85b9C0FacDd97F085FdfE55eCa338EB893' as `0x${string}`,
+  poolManager: '0x3296717bF2399E7d605a6d974b4917de7c663727' as `0x${string}`,
+  liquidNode: '0x5e98ec31DE7d005146828D942C3306AE028c5f59' as `0x${string}`,
+  hook: '0x24C6079Ba44f2484050CE3A6E51b16eBEF717419' as `0x${string}`,
+} as const;
 
 
 // ABIs
@@ -237,6 +244,25 @@ export const HOOK_ABI = [
       { name: 'deviation', type: 'uint256' },
     ],
     stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        name: 'key',
+        type: 'tuple',
+        components: [
+          { name: 'currency0', type: 'address' },
+          { name: 'currency1', type: 'address' },
+          { name: 'fee', type: 'uint24' },
+          { name: 'tickSpacing', type: 'int24' },
+          { name: 'hooks', type: 'address' },
+        ],
+      },
+    ],
+    name: 'manualStabilize',
+    outputs: [],
+    stateMutability: 'nonpayable',
     type: 'function',
   },
 ] as const;

@@ -162,11 +162,13 @@ function USDCFaucet() {
   const { isLoading: isConfirming, isSuccess, error: txError } = useWaitForTransactionReceipt({ hash });
 
   const handleFaucet = () => {
+    if (!address) return;
     console.log('🚀 Requesting USDC faucet for address:', address);
     writeContract({
       address: CONTRACTS.usdc,
       abi: USDC_ABI,
-      functionName: 'faucet',
+      functionName: 'mint',
+      args: [address, parseUnits('10000', 6)],
     });
   };
 

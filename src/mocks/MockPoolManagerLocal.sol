@@ -9,6 +9,7 @@ import {BalanceDelta, BalanceDeltaLibrary, toBalanceDelta} from "v4-core/types/B
 import {SwapParams} from "v4-core/types/PoolOperation.sol";
 import {IHooks} from "v4-core/interfaces/IHooks.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "forge-std/console.sol";
 
 /// @title MockPoolManagerLocal
 /// @notice Simplified PoolManager for local testing with basic AMM logic
@@ -141,9 +142,27 @@ contract MockPoolManagerLocal {
         BalanceDelta delta = toBalanceDelta(int128(amount0Delta), int128(amount1Delta));
 
         // Call afterSwap hook to trigger price stabilization
+        console.log("[POOL MANAGER] Checking if hook exists...");
+        console.log("[POOL MANAGER] Hook address:", address(key.hooks));
+
         if (address(key.hooks) != address(0)) {
-            try IHooks(address(key.hooks)).afterSwap(msg.sender, key, params, delta, hookData) {}
-            catch {}
+            console.log("[POOL MANAGER] Hook is set, calling afterSwap...");
+            console.log("[POOL MANAGER] msg.sender:", msg.sender);
+            console.log("[POOL MANAGER] amountIn:", amountIn);
+            console.log("[POOL MANAGER] amountOut:", amountOut);
+
+            try IHooks(address(key.hooks)).afterSwap(msg.sender, key, params, delta, hookData) {
+                console.log("[POOL MANAGER] afterSwap call SUCCESS");
+            }
+            catch Error(string memory reason) {
+                console.log("[POOL MANAGER] afterSwap FAILED with reason:", reason);
+            }
+            catch (bytes memory lowLevelData) {
+                console.log("[POOL MANAGER] afterSwap FAILED with low-level error");
+                console.logBytes(lowLevelData);
+            }
+        } else {
+            console.log("[POOL MANAGER] No hook attached to pool!");
         }
 
         return delta;
@@ -166,5 +185,47 @@ contract MockPoolManagerLocal {
     /// @notice Check if pool is initialized
     function isPoolInitialized(bytes32 poolId) external view returns (bool) {
         return pools[poolId].initialized;
+    }
+
+    /// @notice Direct reserve adjustment for stabilization (no nested swap)
+    /// @dev Called by LiquidNode to adjust reserves and transfer tokens
+    function adjustReserves(
+        bytes32 poolId,
+        int256 amount0Delta,
+        int256 amount1Delta,
+        address token0,
+        address token1,
+        address liquidNode
+    ) external {
+        Pool storage pool = pools[poolId];
+        require(pool.initialized, "Pool not initialized");
+
+        // Handle token transfers based on deltas
+        // Positive delta = tokens coming into pool from LiquidNode
+        // Negative delta = tokens going out from pool to LiquidNode
+
+        if (amount0Delta > 0) {
+            // Receive tokens from LiquidNode
+            IERC20(token0).transferFrom(liquidNode, address(this), uint256(amount0Delta));
+            pool.reserve0 += uint256(amount0Delta);
+        } else if (amount0Delta < 0) {
+            // Send tokens to LiquidNode
+            IERC20(token0).transfer(liquidNode, uint256(-amount0Delta));
+            pool.reserve0 -= uint256(-amount0Delta);
+        }
+
+        if (amount1Delta > 0) {
+            // Receive tokens from LiquidNode
+            IERC20(token1).transferFrom(liquidNode, address(this), uint256(amount1Delta));
+            pool.reserve1 += uint256(amount1Delta);
+        } else if (amount1Delta < 0) {
+            // Send tokens to LiquidNode
+            IERC20(token1).transfer(liquidNode, uint256(-amount1Delta));
+            pool.reserve1 -= uint256(-amount1Delta);
+        }
+
+        console.log("[POOL MANAGER] Reserves adjusted directly");
+        console.log("[POOL MANAGER] New reserve0:", pool.reserve0);
+        console.log("[POOL MANAGER] New reserve1:", pool.reserve1);
     }
 }

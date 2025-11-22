@@ -8,4 +8,12 @@ via_ir = true
 optimizer = true
 optimizer_runs = 200
 
+# RPC endpoints
+[rpc_endpoints]
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+
+# Etherscan API keys for verification (V2 API)
+[etherscan]
+base_sepolia = { key = "${BASESCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=84532" }
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
