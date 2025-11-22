@@ -32,12 +32,12 @@ contract SimulateStabilization is Script {
 
     function run() external {
         // Use addresses from deployment
-        usdc = MockUSDC(0xBEc49fA140aCaA83533fB00A2BB19bDdd0290f25);
-        oracle = DobOracle(0xD84379CEae14AA33C123Af12424A37803F885889);
-        dobToken = DobToken(0x46b142DD1E924FAb83eCc3c08e4D46E82f005e0E);
-        poolManager = MockPoolManagerLocal(0xfbC22278A96299D91d41C453234d97b4F5Eb9B2d);
-        liquidNode = LiquidNodeStabilizer(0xC9a43158891282A2B1475592D5719c001986Aaec);
-        hook = DobNodeLiquidityHookLocal(0x1c85638e118b37167e9298c2268758e058DdfDA0);
+        usdc = MockUSDC(0x4A679253410272dd5232B3Ff7cF5dbB88f295319);
+        oracle = DobOracle(0x7a2088a1bFc9d81c55368AE168C2C02570cB814F);
+        dobToken = DobToken(0x67d269191c92Caf3cD7723F116c85e6E9bf55933);
+        poolManager = MockPoolManagerLocal(0xc5a5C42992dECbae36851359345FE25997F5C42d);
+        liquidNode = LiquidNodeStabilizer(0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E);
+        hook = DobNodeLiquidityHookLocal(0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690);
 
         // Setup pool key
         poolKey = PoolKey({

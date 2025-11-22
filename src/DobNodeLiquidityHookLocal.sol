@@ -13,6 +13,7 @@ import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {SwapParams, ModifyLiquidityParams} from "v4-core/types/PoolOperation.sol";
 import {LiquidNodeStabilizer} from "./LiquidNodeStabilizer.sol";
 import {IDobOracle} from "./interfaces/IDobOracle.sol";
+import {console} from "forge-std/console.sol";
 import {MockPoolManagerLocal} from "./mocks/MockPoolManagerLocal.sol";
 
 /// @title DobNodeLiquidityHookLocal
@@ -167,6 +168,10 @@ contract DobNodeLiquidityHookLocal is LocalBaseHook, IHooks {
         // Get oracle NAV (both in 18 decimals)
         uint256 nav = oracle.nav();
 
+        // DEBUG: Log price and NAV
+        console.log("[HOOK DEBUG] Pool Price (18 decimals):", poolPrice);
+        console.log("[HOOK DEBUG] Oracle NAV (18 decimals):", nav);
+
         // Calculate deviation in bps
         uint256 deviation;
         bool poolPriceTooLow;
@@ -179,23 +184,39 @@ contract DobNodeLiquidityHookLocal is LocalBaseHook, IHooks {
             poolPriceTooLow = false;
         }
 
+        console.log("[HOOK DEBUG] Deviation (bps):", deviation);
+        console.log("[HOOK DEBUG] Threshold (bps):", DEVIATION_THRESHOLD);
+        if (deviation > DEVIATION_THRESHOLD) {
+            console.log("[HOOK DEBUG] STABILIZATION TRIGGERED");
+        }
+
         emit PriceChecked(poolPrice, nav, deviation);
 
         // If deviation > 5%, trigger stabilization
         if (deviation > DEVIATION_THRESHOLD) {
             if (poolPriceTooLow) {
                 // Pool price too low - Liquid Node buys DOB to support price
+                console.log("[HOOK] Calling stabilizeLow...");
                 try liquidNode.stabilizeLow(key, deviation) {
+                    console.log("[HOOK] stabilizeLow SUCCESS");
                     emit PriceStabilized(poolPrice, nav, deviation, true);
-                } catch {
-                    // Liquid Node might be out of funds - continue without stabilizing
+                } catch Error(string memory reason) {
+                    console.log("[HOOK] stabilizeLow FAILED:", reason);
+                } catch (bytes memory lowLevelData) {
+                    console.log("[HOOK] stabilizeLow FAILED with low-level error");
+                    console.logBytes(lowLevelData);
                 }
             } else {
                 // Pool price too high - Liquid Node sells DOB to cap price
+                console.log("[HOOK] Calling stabilizeHigh...");
                 try liquidNode.stabilizeHigh(key, deviation) {
+                    console.log("[HOOK] stabilizeHigh SUCCESS");
                     emit PriceStabilized(poolPrice, nav, deviation, false);
-                } catch {
-                    // Liquid Node might be out of funds - continue without stabilizing
+                } catch Error(string memory reason) {
+                    console.log("[HOOK] stabilizeHigh FAILED:", reason);
+                } catch (bytes memory lowLevelData) {
+                    console.log("[HOOK] stabilizeHigh FAILED with low-level error");
+                    console.logBytes(lowLevelData);
                 }
             }
         }
@@ -213,17 +234,30 @@ contract DobNodeLiquidityHookLocal is LocalBaseHook, IHooks {
         // Get reserves from MockPoolManagerLocal
         (uint256 reserve0, uint256 reserve1) = MockPoolManagerLocal(address(poolManager)).getPoolReserves(poolId);
 
+        // DEBUG: Log raw reserves
+        console.log("[PRICE DEBUG] Reserve0:", reserve0);
+        console.log("[PRICE DEBUG] Reserve1:", reserve1);
+
         // Determine which is USDC and which is DOB
         bool usdcIsToken0 = Currency.unwrap(usdc) < Currency.unwrap(dobToken);
         uint256 usdcReserve = usdcIsToken0 ? reserve0 : reserve1;
         uint256 dobReserve = usdcIsToken0 ? reserve1 : reserve0;
 
+        console.log("[PRICE DEBUG] USDC Reserve (6 decimals):", usdcReserve);
+        console.log("[PRICE DEBUG] DOB Reserve (18 decimals):", dobReserve);
+
         // Calculate price (USDC per DOB) in 18 decimals
         // USDC has 6 decimals, DOB has 18 decimals
-        if (dobReserve == 0) return 0;
+        if (dobReserve == 0) {
+            console.log("[PRICE DEBUG] ERROR: DOB Reserve is ZERO");
+            return 0;
+        }
 
         // price = (usdcReserve * 1e18) / dobReserve, adjust for USDC decimals
-        price = (usdcReserve * 1e30) / dobReserve; // 1e30 = 1e18 (target) * 1e6 (USDC) * 1e6 (adjustment)
+        // Formula: (usdcReserve * 1e12 * 1e18) / dobReserve = (usdcReserve * 1e30) / dobReserve
+        price = (usdcReserve * 1e30) / dobReserve;
+
+        console.log("[PRICE DEBUG] Calculated Price (18 decimals):", price);
     }
 
     /// @notice View current pool price

@@ -3,8 +3,11 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { CONTRACTS, ORACLE_ABI, DOB_TOKEN_ABI, USDC_ABI } from './contracts';
+import { SwapTestPanel } from './SwapTest';
 
 function App() {
+  const [tab, setTab] = useState<'overview' | 'test'>('test');
+
   return (
     <div className="min-h-screen bg-gray-900 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
@@ -16,20 +19,49 @@ function App() {
           <ConnectButton />
         </header>
 
-        {/* Stats Bar */}
-        <StatsBar />
-
-        {/* USDC Faucet */}
-        <USDCFaucet />
-
-        {/* Main Actions */}
-        <div className="grid md:grid-cols-2 gap-6 mt-6">
-          <BuyCard />
-          <SellCard />
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setTab('test')}
+            className={`px-6 py-2 rounded font-semibold transition ${
+              tab === 'test' ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'
+            }`}
+          >
+            🧪 Hook Integration Test
+          </button>
+          <button
+            onClick={() => setTab('overview')}
+            className={`px-6 py-2 rounded font-semibold transition ${
+              tab === 'overview' ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'
+            }`}
+          >
+            📊 Overview
+          </button>
         </div>
 
-        {/* Demo Panel */}
-        <DemoPanel />
+        {tab === 'test' ? (
+          <>
+            <SwapTestPanel />
+            <DemoPanel />
+          </>
+        ) : (
+          <>
+            {/* Stats Bar */}
+            <StatsBar />
+
+            {/* USDC Faucet */}
+            <USDCFaucet />
+
+            {/* Main Actions */}
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              <BuyCard />
+              <SellCard />
+            </div>
+
+            {/* Demo Panel */}
+            <DemoPanel />
+          </>
+        )}
       </div>
     </div>
   );
@@ -43,12 +75,18 @@ function StatsBar() {
     address: CONTRACTS.oracle,
     abi: ORACLE_ABI,
     functionName: 'nav',
+    query: {
+      refetchInterval: false, // Manual refresh only
+    },
   });
 
   const { data: risk } = useReadContract({
     address: CONTRACTS.oracle,
     abi: ORACLE_ABI,
     functionName: 'defaultRisk',
+    query: {
+      refetchInterval: false, // Manual refresh only
+    },
   });
 
   const { data: balance } = useReadContract({
@@ -56,6 +94,9 @@ function StatsBar() {
     abi: DOB_TOKEN_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    query: {
+      refetchInterval: false, // Manual refresh only
+    },
   });
 
   const { data: usdcBalance } = useReadContract({
@@ -63,6 +104,9 @@ function StatsBar() {
     abi: USDC_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    query: {
+      refetchInterval: false, // Manual refresh only
+    },
   });
 
   const navValue = nav ? Number(formatUnits(nav, 18)) : 1;
@@ -114,16 +158,20 @@ function StatCard({ label, value, subtext, color }: { label: string; value: stri
 // USDC Faucet Component
 function USDCFaucet() {
   const { address } = useAccount();
-  const { writeContract, data: hash } = useWriteContract();
-  const { isLoading, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess, error: txError } = useWaitForTransactionReceipt({ hash });
 
   const handleFaucet = () => {
+    console.log('🚀 Requesting USDC faucet for address:', address);
     writeContract({
       address: CONTRACTS.usdc,
       abi: USDC_ABI,
       functionName: 'faucet',
     });
   };
+
+  const isLoading = isPending || isConfirming;
+  const error = writeError || txError;
 
   return (
     <div className="mt-6 bg-cyan-900 bg-opacity-30 border border-cyan-600 rounded-lg p-4">
@@ -137,11 +185,21 @@ function USDCFaucet() {
           disabled={!address || isLoading}
           className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 disabled:cursor-not-allowed px-6 py-2 rounded font-semibold transition"
         >
-          {isLoading ? 'Claiming...' : 'Get USDC'}
+          {isPending ? 'Waiting for wallet...' : isConfirming ? 'Confirming...' : 'Get USDC'}
         </button>
       </div>
       {isSuccess && (
         <p className="text-green-400 text-sm mt-2">✓ 10,000 USDC claimed successfully!</p>
+      )}
+      {error && (
+        <p className="text-red-400 text-sm mt-2">
+          ✗ Error: {error.message || 'Transaction failed'}
+        </p>
+      )}
+      {hash && (
+        <p className="text-gray-400 text-xs mt-1">
+          Tx: {hash.slice(0, 10)}...{hash.slice(-8)}
+        </p>
       )}
     </div>
   );
@@ -286,9 +344,14 @@ function SellCard() {
 function DemoPanel() {
   const [navInput, setNavInput] = useState('1.00');
   const [riskInput, setRiskInput] = useState('10');
+  const { address } = useAccount();
 
   const { writeContract, data: hash } = useWriteContract();
   const { isLoading, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // Oracle updater address
+  const ORACLE_UPDATER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`;
+  const isUpdater = address?.toLowerCase() === ORACLE_UPDATER.toLowerCase();
 
   const handleUpdate = () => {
     const navWei = parseUnits(navInput, 18);
@@ -315,6 +378,22 @@ function DemoPanel() {
       <h2 className="text-lg font-semibold mb-4 text-yellow-400">
         ⚡ Demo Controls (Oracle Update)
       </h2>
+
+      {/* Warning if not updater */}
+      {address && !isUpdater && (
+        <div className="mb-4 p-3 bg-red-900 bg-opacity-30 border border-red-600 rounded">
+          <div className="text-red-400 font-semibold">⚠️ Wrong Account</div>
+          <div className="text-sm text-red-300 mt-1">
+            You must use the oracle updater account:
+          </div>
+          <div className="text-xs font-mono text-red-200 mt-1 break-all">
+            {ORACLE_UPDATER}
+          </div>
+          <div className="text-xs text-red-300 mt-2">
+            This is Anvil's first test account (Account #0)
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
@@ -355,10 +434,10 @@ function DemoPanel() {
 
       <button
         onClick={handleUpdate}
-        disabled={isLoading}
-        className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-600 rounded py-2 font-semibold transition"
+        disabled={isLoading || !isUpdater}
+        className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded py-2 font-semibold transition"
       >
-        {isLoading ? 'Updating...' : 'Update Oracle'}
+        {isLoading ? 'Updating...' : !isUpdater ? 'Wrong Account (Need Updater)' : 'Update Oracle'}
       </button>
 
       {isSuccess && (
